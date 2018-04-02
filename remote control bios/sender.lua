@@ -5,7 +5,7 @@ local event = require("event")
 
 local running = true
 
-function do_send(q,w,e,r,t)
+function do_send(...)
 	local recbuf = {}
 	local n = 0
 	local myseq = math.random() + 1
@@ -34,7 +34,7 @@ function do_send(q,w,e,r,t)
 		return true
 	end)
 
-	component.tunnel.send(myseq+1, q,w,e,r,t)
+	component.tunnel.send(myseq+1, ...)
 	event.pull("cont")
 	
 	return	table.lua_unserialize(recbuf)
