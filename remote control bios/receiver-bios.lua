@@ -1,16 +1,32 @@
-if not component
-then component = require("component")
-end
-if	not table
-then	table=require("table")
-end
-if	not computer
-then	computer = require("computer")
+-- compatibility
+if	require
+then
+	component = require("component")
+	table = require("table")
+	computer = require("computer")
+	event = require("event")
 end
 function com(s)
-	return	component.proxy(component.list(s)())
+	local	taddr = component.list(s)()
+	return	taddr and component.proxy(taddr)
 end
-tunnel = com("tunnel")
+function pop(t)
+	return table.remove(t,1)
+end
+
+local port = 1
+
+tunnel = com("tunnel") 
+local	sendraw = function(addr, ...)
+	return tunnel.send(...)
+end
+if	not tunnel
+then	tunnel = com("modem")
+	sendraw = function(addr, ...)
+		return tunnel.send(addr, port, ...)
+	end
+end
+
 
 function table.append(t, ...)
 	local i, v
@@ -64,19 +80,15 @@ function table.lua_serialize(...)
 	return table.unpack(r)
 end
 
-function msend(seq, ...)
+function msend(addr, seq, ...)
 	local arg = {...}
 	while(#arg > 7)
 	do
-		tunnel.send(-seq, table.remove(arg,1), table.remove(arg,1),
-			table.remove(arg,1), table.remove(arg,1),
-			table.remove(arg,1), table.remove(arg,1),
-			table.remove(arg,1))
+		sendraw(addr, -seq, pop(arg), pop(arg), pop(arg), pop(arg),
+			pop(arg), pop(arg),pop(arg))
 	end
-	tunnel.send(seq, table.remove(arg,1), table.remove(arg,1),
-		table.remove(arg,1), table.remove(arg,1),
-		table.remove(arg,1), table.remove(arg,1),
-		table.remove(arg,1))
+	sendraw(addr, seq, pop(arg), pop(arg), pop(arg), pop(arg),
+		pop(arg), pop(arg), pop(arg))
 end
 
 while true
@@ -85,25 +97,26 @@ do	local e = {computer.pullSignal()}
 	then	goto not_modem_message
 	end
 	local	_mm, receiverAddress, senderAddress,
-		port, distance, seq, fs = table.remove(e,1),
-		table.remove(e,1),  table.remove(e,1), table.remove(e,1),
-		table.remove(e,1), table.remove(e,1), table.remove(e,1)
+		port, distance, seq, fs = pop(e), pop(e), pop(e),
+		pop(e), pop(e), pop(e), pop(e)
+	if	type(seq) ~= "number"
+	then	goto not_modem_message
+	end
 
 	seq = seq - 1;
 	local f, s
 	if	not fs
-	then	msend(seq, table.lua_serialize(false, "nil"))
+	then	msend(senderAddress, seq, table.lua_serialize(false, "nil"))
 	else	if	string.sub(fs,1,7) ~= "return "
 		then	fs = "return " .. fs
 		end
 		f, s = load(fs)
 		if	f
-		then	msend(seq, table.lua_serialize(pcall(f(),
+		then	msend(senderAddress, seq, table.lua_serialize(pcall(f(),
 				table.unpack(e))))
-		else	msend(seq, table.lua_serialize(
+		else	msend(senderAddress, seq, table.lua_serialize(
 				false, "complie failed: ".. s))
 		end
 	end
-	--local ret = {pcall(f(), table.unpack(e))}
 	::not_modem_message::
 end

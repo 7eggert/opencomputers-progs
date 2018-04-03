@@ -5,6 +5,28 @@ local event = require("event")
 
 local running = true
 
+local port = 1
+
+function com(s)
+	local	addr = component.list(s)()
+	return	addr and component.proxy(addr)
+end
+
+local senddev = com("tunnel")
+
+local	sendraw = function(addr, ...)
+	return senddev.send(...)
+end
+
+if	not senddev
+then	senddev = com("modem")
+	senddev.open(port)
+	sendraw = function(addr, ...)
+		--return senddev.send(addr, port, ...) -- todo
+		return senddev.broadcast(port, ...)
+	end
+end
+
 function do_send(...)
 	local recbuf = {}
 	local n = 0
@@ -34,7 +56,7 @@ function do_send(...)
 		return true
 	end)
 
-	component.tunnel.send(myseq+1, ...)
+	sendraw(0, myseq+1, ...)
 	event.pull("cont")
 	
 	return	table.lua_unserialize(recbuf)
